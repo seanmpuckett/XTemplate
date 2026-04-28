@@ -11,6 +11,7 @@ A lightweight, streaming template engine for MicroPython. Designed for memory-co
 ## Table of Contents
 
 - [Overview](#overview)
+- [Design Approach](#design-approach)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Template Syntax](#template-syntax)
@@ -47,6 +48,16 @@ Key properties:
 - **File-based templates** — reads from the filesystem line by line using `seek`/`tell` for loops
 - **Safe expression evaluation** — expressions run in a restricted `eval` sandbox with no access to builtins like `open`, `exec`, or `import`
 - **Configurable** — prefix character, chunk size, base path, and the global sandbox are all adjustable
+
+---
+
+## Design Approach
+
+XTemplate trades speed for runtime size.  It doesn't cache anything.  On an ESP32 device, figure about 1ms of processing time per statement or text line with interpolation. This is advantageous for devices where an active WiFi stack may be occupying a significant portion of working memory with a large amount of churn as packets come through.  XTemplate uses barely 3K of RAM in small allocations when processing templates, even several includes deep.   If you freeze XTemplate into flash, it will have hardly any footprint at all except when you are actively templating something.
+
+I did test speending up `eval` expression computation by turning it into cached `compile` code blocks with `exec`, but the overhead of calling exec and setting up an environment seems to be greater than just calling `eval` so it's not worth even that bare attempt.  Any truly effective caching for speed would have to take place with large blocks of code and embedded text, defeating the design goals for XTemplate.
+
+It may be "slow" but it's asynchronous in millisecond-sized fragments, so it should not introduce substantial lag in everything else your device needs to do, while it's serving pretty HTML to your end-user.
 
 ---
 
@@ -450,15 +461,6 @@ If throw is true, rendering ends immediately, and the exception is re-raised wit
 | `RuntimeError: argument '...' missing` | `# args` declaration not satisfied by caller |
 
 ---
-
-## Design Approach
-
-XTemplate trades speed for runtime size.  It doesn't cache anything.  On an ESP32 device, figure about 1ms of processing time per statement or text line with interpolation. This is advantageous for devices where an active WiFi stack may be occupying a significant portion of working memory with a large amount of churn as packets come through.  XTemplate uses barely 3K of RAM in small allocations when processing templates, even several includes deep.   If you freeze XTemplate into flash, it will have hardly any footprint at all except when you are actively templating something.
-
-I did test speending up `eval` expression computation by turning it into cached `compile` code blocks with `exec`, but the overhead of calling exec and setting up an environment seems to be greater than just calling `eval` so it's not worth even that bare attempt.  Any truly effective caching for speed would have to take place with large blocks of code and embedded text, defeating the design goals for XTemplate.
-
-It may be "slow" but it's asynchronous in millisecond-sized fragments, so it should not introduce substantial lag in everything else your device needs to do, while it's serving pretty HTML to your end-user.
-
 
 ## Limitations
 
