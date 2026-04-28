@@ -451,6 +451,15 @@ If throw is true, rendering ends immediately, and the exception is re-raised wit
 
 ---
 
+## Design Approach
+
+XTemplate trades speed for runtime size.  It doesn't cache anything.  On an ESP32 device, figure about 1ms of processing time per statement or text line with interpolation. This is advantageous for devices where an active WiFi stack may be occupying a significant portion of working memory with a large amount of churn as packets come through.  XTemplate uses barely 3K of RAM in small allocations when processing templates, even several includes deep.   If you freeze XTemplate into flash, it will have hardly any footprint at all except when you are actively templating something.
+
+I did test speending up `eval` expression computation by turning it into cached `compile` code blocks with `exec`, but the overhead of calling exec and setting up an environment seems to be greater than just calling `eval` so it's not worth even that bare attempt.  Any truly effective caching for speed would have to take place with large blocks of code and embedded text, defeating the design goals for XTemplate.
+
+It may be "slow" but it's asynchronous in millisecond-sized fragments, so it should not introduce substantial lag in everything else your device needs to do, while it's serving pretty HTML to your end-user.
+
+
 ## Limitations
 
 - **Seek required for loops.** `for` and `while` loops rewind the file stream using `seek()`. Template files must be on a seekable filesystem. Streaming templates over a network or reading from stdin is not supported for templates that contain loops.
