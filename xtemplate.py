@@ -6,7 +6,7 @@ import sys, io
 
 _nop5 = (False, False, None, None, None)
 _nop4 = (False, False, None, None) 
-_expected={2:'endif',4:'endwhile',6:'endfor'}
+_expected={2:'endif',4:'endwhile',5:'endfor'}
 _safe_globals = {
     "__builtins__": {
         # type coercion
@@ -166,13 +166,13 @@ class XTemplate:
                     _locals[var.strip()] = evaluate(expr)
 
                 elif kw == "include":
-                    parts = rest.split("with", 1)
-                    incpath = evaluate(parts[0])
+                    expr, _, args = rest.partition(" with ")
+                    incpath = str(evaluate(expr))
                     sub_locals = _locals.copy()
-                    if len(parts) > 1: # parse arguments arg=val, arg=val
-                        args = f"dict({parts[1]})"
-                        extra_args = evaluate(args)
-                        sub_locals.update(extra_args)
+                    if args: # parse arguments arg=val, arg=val
+                        args = f"dict({args})"
+                        args = evaluate(args)
+                        sub_locals.update(args)
                     yield from self._render(incpath, lines_left, sub_locals)
 
                 elif kw == "emit":
