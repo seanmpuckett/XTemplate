@@ -1,6 +1,8 @@
 # XTemplate
-# Shae M Puckett 2026
-# MIT license
+
+Shae M Puckett 2026
+
+MIT license
 
 A lightweight, streaming template engine for MicroPython. Designed for memory-constrained devices that need to serve templated HTML (or any text) without loading entire files into RAM.
 
