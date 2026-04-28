@@ -4,7 +4,7 @@
 
 import sys, io
 
-_nop6 = (False, False, None, None, None, None)
+_nop5 = (False, False, None, None, None)
 _nop4 = (False, False, None, None) 
 _expected={2:'endif',4:'endwhile',6:'endfor'}
 _safe_globals = {
@@ -103,7 +103,7 @@ class XTemplate:
 
                 elif kw == "for":
                     if not anyactive: 
-                      stack.append(list(_nop6))
+                      stack.append(list(_nop5))
                       if brkcnt: brkcnt += 2  # pseudo stack effect
                     else:
                         v_in_e = rest.split(None, 2)
@@ -112,31 +112,27 @@ class XTemplate:
                         try: val = next(it)
                         except StopIteration: val = _nop4 # flag 
                         confirm = val is not _nop4
-                        stack.append([confirm, confirm, var, it, stream.tell(), _locals.get(var, None)]) # 6 elements
+                        stack.append([confirm, confirm, var, it, stream.tell()]) # 5 elements
                         if confirm: _locals[var] = val
 
                 elif kw == "endfor":
-                    if len(stackend) != 6: raise XTemplateError(f"expected {_expected[len(stackend)]} not endfor")
+                    if len(stackend) != 5: raise XTemplateError(f"expected {_expected[len(stackend)]} not endfor")
                     if len(stack) < 2: raise XTemplateError(f"unexpected endfor")
-                    if not loopactive or brkcnt == 1: 
-                        if stackend[2]: 
-                            _locals[stackend[2]] = stackend[5] # restore old value of local
-                        stack.pop()
-                    else:
-                        var = stackend[2]
+                    term = not loopactive or brkcnt == 1
+                    _, _, var, iterator, pos = stackend
+                    if not term:
                         try:
-                            _locals[var] = next(stackend[3]) # 3 = iterator
-                            stream.seek(stackend[4])         # 4 = rewind location
+                            _locals[var] = next(iterator)
+                            stream.seek(pos)
                             stackend[0:2] = [True, True]
-                        except StopIteration:
-                            _locals[var] = stackend[5]       # 5 = old value
-                            stack.pop()
+                        except StopIteration: term = True
+                    if term: stack.pop()
                     brkcnt = 0 if brkcnt <= 2 else brkcnt - 2
             
                 elif kw == "while":
                     if not anyactive: 
-                      stack.append(list(_nop4))
-                      if brkcnt: brkcnt += 2  # pseudo stack effect
+                        stack.append(list(_nop4))
+                        if brkcnt: brkcnt += 2  # pseudo stack effect
                     else:
                         cond = bool(evaluate(rest))
                         stack.append([cond, cond, rest, stream.tell()]) # 4 elements
@@ -144,14 +140,14 @@ class XTemplate:
                 elif kw == "endwhile":
                     if len(stackend) != 4: raise XTemplateError(f"expected {_expected[len(stackend)]} not endwhile")
                     if len(stack) < 2: raise XTemplateError(f"unexpected endwhile")
-                    if not loopactive or brkcnt == 1: 
-                      stack.pop()
-                    else:
-                        if bool(evaluate(stackend[2])): # 2 = expr
-                            stream.seek(stackend[3])    # 3 = rewind location
+                    term = not loopactive or brkcnt == 1
+                    _, _, expr, pos = stackend
+                    if not term:
+                        if bool(evaluate(expr)):
+                            stream.seek(pos)
                             stackend[0:2] = [True, True]
-                        else:
-                            stack.pop()
+                        else: term = True
+                    if term: stack.pop()
                     brkcnt = 0 if brkcnt <= 2 else brkcnt - 2
 
                 elif not anyactive:  # no more stack-oriented flow control checks
