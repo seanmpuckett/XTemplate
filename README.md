@@ -146,7 +146,7 @@ Assign or update a variable in the current scope:
 # set doubled = count * 2
 ```
 
-Variables set in a template or include are scoped to that context; the `for` loop variable is also scoped within the loop.
+Variables set within an include are scoped to that context and do not bubble up to the enclosing template/code, though their values are available to child templates `included` within.  No other scope control is performed, including within loops.
 
 ---
 
@@ -198,6 +198,7 @@ Loops support `else` to render a block when the iterable is empty:
 
 > **Note:** Every `# for` must have a matching `# endfor`.
 
+> **Note:** XTemplate loops, including `for`, do not enclose (scope) variables used within them.  
 ---
 
 ### While Loops — `while / endwhile`
