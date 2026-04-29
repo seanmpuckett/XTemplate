@@ -43,11 +43,16 @@ class XTemplate:
         comment = prefix + "#"
         fullpath = self.base_path + path
         stream = self.open_with(fullpath)
+        stack = [(True, False)]   # stack structure [active, branch_taken, (loop data ...)]
+        brkcnt, stackend = 0, 0   # brkcnt: n/a = 0, break = 1, continue = 2, >2 nested
+
+        def evaluate(expr): return eval(expr.strip(),_globals,_locals)
+        
+        def stackcheck(expect):
+            if len(stackend) != expect: raise XTemplateError(f"expected {_expected[len(stackend)]} not {_expected[expect]}")
+            if len(stack) < 2: raise XTemplateError(f"unexpected {_expected[expect]}")
+
         try:
-            def evaluate(expr): return eval(expr.strip(),_globals,_locals)
-            
-            stack = [(True, False)]     # stack structure [active, branch_taken, (loop data ...)]
-            brkcnt = 0                  # n/a = 0, break = 1, continue = 2, >2 nested
             while True:
                 lines_left -= 1         # generally counting statements only, not body text
                 if lines_left <= 0: raise XTemplateError("runaway template expansion")
@@ -71,9 +76,9 @@ class XTemplate:
                       yield line[c:]
                       break
                 
-                if line.startswith(comment): continue # comment
+                if line.startswith(comment): continue 
                 parts = line.split(None, 2)
-                if len(parts) < 2: continue           # empty statement
+                if len(parts) < 2: continue # empty statement
                 kw = parts[1]
                 rest = parts[2] if len(parts) > 2 else ""
 
@@ -92,13 +97,12 @@ class XTemplate:
                 elif kw == "else":
                     if brkcnt: continue
                     if len(stackend) != 2 and stackend[0]:
-                        brkcnt = 2  # else for loops works
+                        brkcnt = 2 
                     else:
                       stackend[0:2] = [stack[-2][0] and not stackend[1], True] # parent active, invert taken
 
                 elif kw == "endif":
-                    if len(stackend) != 2: raise XTemplateError(f"expected {_expected[len(stackend)]} not endif")
-                    if len(stack) < 2: raise XTemplateError(f"unexpected endif")
+                    stackcheck(2) # 2 elements = if
                     stack.pop()
 
                 elif kw == "for":
@@ -116,8 +120,7 @@ class XTemplate:
                         if confirm: _locals[var] = val
 
                 elif kw == "endfor":
-                    if len(stackend) != 5: raise XTemplateError(f"expected {_expected[len(stackend)]} not endfor")
-                    if len(stack) < 2: raise XTemplateError(f"unexpected endfor")
+                    stackcheck(5) # 5 elements = for
                     term = not loopactive or brkcnt == 1
                     _, _, var, iterator, pos = stackend
                     if not term:
@@ -138,8 +141,7 @@ class XTemplate:
                         stack.append([cond, cond, rest, stream.tell()]) # 4 elements
 
                 elif kw == "endwhile":
-                    if len(stackend) != 4: raise XTemplateError(f"expected {_expected[len(stackend)]} not endwhile")
-                    if len(stack) < 2: raise XTemplateError(f"unexpected endwhile")
+                    stackcheck(4) # 4 elements = while
                     term = not loopactive or brkcnt == 1
                     _, _, expr, pos = stackend
                     if not term:
@@ -153,36 +155,28 @@ class XTemplate:
                 elif not anyactive:  # no more stack-oriented flow control checks
                     continue 
 
-                elif kw == "break":
-                    _, _, expr = line.partition(" if ")
-                    brkcnt = 1 if not expr or bool(evaluate(expr)) else 0
-
-                elif kw == "continue":
-                    _, _, expr = line.partition(" if ")
-                    brkcnt = 2 if not expr or bool(evaluate(expr)) else 0
-
                 elif kw == "set":
                     var, _, expr = rest.partition("=")
                     _locals[var.strip()] = evaluate(expr)
+
+                elif kw in ('break','continue','exit'):
+                    _, _, expr = line.partition(" if ")
+                    if (not expr) or bool(evaluate(expr)):
+                        if kw == 'exit': return
+                        brkcnt = 1 if kw == 'break' else 2
 
                 elif kw == "include":
                     expr, _, args = rest.partition(" with ")
                     incpath = str(evaluate(expr))
                     sub_locals = _locals.copy()
                     if args: # parse arguments arg=val, arg=val
-                        args = f"dict({args})"
-                        args = evaluate(args)
-                        sub_locals.update(args)
+                        sub_locals.update(evaluate(f"dict({args})"))
                     yield from self._render(incpath, lines_left, sub_locals)
 
                 elif kw == "emit":
                     with self.open_with(str(evaluate(rest))) as f:
                         while data := f.readline():
                             yield data.decode() if hasattr(data,"decode") else data
-
-                elif kw == "exit": 
-                    _, _, expr = line.partition(" if ")
-                    if not (expr or bool(evaluate(expr))): return
 
                 elif kw == "raise":
                     raise XTemplateError("template raised an error: "+str(evaluate(rest)))
@@ -194,16 +188,17 @@ class XTemplate:
                 else: raise XTemplateError(f"unknown keyword '{kw}'")
 
         except Exception as e:
-            opos, l = stream.tell(), 0 
-            stream.seek(0)
+            opos, l = stream.tell(), 0
+            stream.seek(0) 
             while stream.tell() < opos: # find line number 
                 stream.readline()
                 l += 1
+            msg = f"Template File {fullpath}, line {l}:\n{line}"
+            if self.throw: raise XTemplateError(f"{e.value}\n{msg}") from e 
             with io.StringIO() as str_io:
                 sys.print_exception(e, str_io)
-                e = f"\nXTemplate error:\n  File {fullpath}, line {l}:\n  {line}\n" + str_io.getvalue()
-                if self.throw: raise RuntimeError(e)
-                else: yield e
+                desc = str_io.getvalue()
+            yield desc+msg
 
         finally:
             stream.close()
