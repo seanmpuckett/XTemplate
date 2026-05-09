@@ -24,9 +24,10 @@ A lightweight, streaming template engine for MicroPython. Designed for memory-co
   - [Loop Control — `break / continue`](#loop-control--break--continue)
   - [Includes — `include`](#includes--include)
   - [Emit — `emit`](#emit)
-  - [Required Arguments — `args`](#required-arguments--args)
+  - [Value Defaulting — `default`](#value-defaulting--default)
   - [Early Exit — `exit`](#early-exit--exit)
   - [Raise — `raise`](#raise)
+  - [Assert — `assert`](#assert)
 - [The XTemplate Class](#the-xtemplate-class)
   - [Constructor Parameters](#constructor-parameters)
   - [render()](#render)
@@ -276,15 +277,15 @@ The path is a Python expression. The file is streamed directly to output without
 
 ---
 
-### Required Arguments — `args`
+### Default Values — `defaults`
 
 Declare that certain variables must be provided by the caller. Place this near the top of a template to catch missing data early:
 
 ```
-# args title, items, user
+# default title = "Page", items = (), user = None
 ```
 
-If any listed variable is absent from the render context, an error is raised immediately. Useful for shared partials and includes that depend on specific inputs.
+If any listed variable is absent from the render context, the provided value is set.  Does not bubble up to any outer context.
 
 ---
 
@@ -311,6 +312,19 @@ Emit a `XTemplateError` with a custom message — useful for asserting invariant
 ```
 
 The message is a Python expression.
+
+---
+
+### Assert — `assert`
+
+Emit a `XTemplateError` if an expression is falsy.  The message in the exception is the expression error.
+
+```
+# assert userid 
+# assert name and address
+```
+
+The expression is evaluated as Python.
 
 ---
 
