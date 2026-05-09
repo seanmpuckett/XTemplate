@@ -25,7 +25,12 @@ _safe_globals = {
     }
 }
 class XTemplateError(RuntimeError): pass
-def _filesystem(path): return open(path,"r")
+def _filesystem(path): 
+  try:
+    return open(path,"r")
+  except OSError as e:
+    print("xtemplate system tried to open",path)
+    raise
     
 class XTemplate:
     def __init__(self, base_path = '/', chunk_size = 512, globals = _safe_globals, open_with = _filesystem, max_lines=10000, prefix = "#", throw = False):
@@ -174,16 +179,21 @@ class XTemplate:
                     yield from self._render(incpath, lines_left, sub_locals)
 
                 elif kw == "emit":
-                    with self.open_with(str(evaluate(rest))) as f:
+                    with self.open_with(self.base_path + str(evaluate(rest))) as f:
                         while data := f.readline():
                             yield data.decode() if hasattr(data,"decode") else data
 
                 elif kw == "raise":
                     raise XTemplateError("template raised an error: "+str(evaluate(rest)))
  
-                elif kw == "args":
-                    for arg in [a.strip() for a in rest.split(',')]:
-                        if not arg in _locals: raise XTemplateError(f"argument '{arg}' missing")
+                elif kw == "assert":
+                    if not bool(evaluate(rest)):
+                      raise XTemplateError("template assertion failed: "+rest)
+ 
+                elif kw == "default":
+                    defaults = evaluate(f"dict({rest})")
+                    for k in defaults:
+                      if k not in _locals: _locals[k] = defaults[k]
 
                 else: raise XTemplateError(f"unknown keyword '{kw}'")
 
