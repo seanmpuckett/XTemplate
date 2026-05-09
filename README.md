@@ -277,12 +277,12 @@ The path is a Python expression. The file is streamed directly to output without
 
 ---
 
-### Default Values — `defaults`
+### Default Values — `default`
 
-Declare that certain variables must be provided by the caller. Place this near the top of a template to catch missing data early:
+Ensure that certain local variables have values, if not already set.  Useful for ensuring arguments exist within included templates.
 
 ```
-# default title = "Page", items = (), user = None
+# default title = "Cart", items = (), user = None
 ```
 
 If any listed variable is absent from the render context, the provided value is set.  Does not bubble up to any outer context.
