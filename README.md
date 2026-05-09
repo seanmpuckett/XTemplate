@@ -317,7 +317,7 @@ The message is a Python expression.
 
 ### Assert — `assert`
 
-Emit a `XTemplateError` if an expression is falsy.  The message in the exception is the expression error.
+Emit a `XTemplateError` if an expression is falsy.  The message in the exception is the expression itself.
 
 ```
 # assert userid 
