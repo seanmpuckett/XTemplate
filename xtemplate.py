@@ -29,8 +29,7 @@ def _filesystem(path):
   try:
     return open(path,"r")
   except OSError as e:
-    print("xtemplate system tried to open",path)
-    raise
+    raise OSError("xtemplate _filesystem tried to open",path) from e
     
 class XTemplate:
     def __init__(self, base_path = '/', chunk_size = 512, globals = _safe_globals, open_with = _filesystem, max_lines=10000, prefix = "#", throw = False):
@@ -214,12 +213,24 @@ class XTemplate:
             stream.close()
 
     def render(self, path, **kwargs):
-        buf, l = [], 0
+        buf = []
+        l = 0
+        cs = self.chunk_size
         for line in self._render(path, self.max_lines, kwargs):
+            linel = len(line)
+            if linel + l >= cs: 
+              if l:
+                y = "".join(buf)
+                buf.clear() 
+                yield y
+                y = l = 0
+              if linel >= cs:
+                yield line
+                line = None
+                continue
             buf.append(line)
-            l += len(line)
-            if l >= self.chunk_size:
-                o = "".join(buf); buf.clear(); yield o # less ram used this way
-                l = 0
-        if buf: 
-          o = "".join(buf); buf.clear(); yield o
+            l += linel
+        if l: 
+          y = "".join(buf)
+          buf.clear()
+          yield y
